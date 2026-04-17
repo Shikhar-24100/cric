@@ -1,5 +1,5 @@
 import { db } from './db';
-import type { Ball, Innings, BattingPerformance, BowlingPerformance } from './db';
+import type { Ball } from './db';
 
 // Helper to calculate score directly from balls and innings extras
 export async function getInningsScore(inningsId: number) {

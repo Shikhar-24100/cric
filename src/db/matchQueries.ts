@@ -9,10 +9,12 @@ export async function createNewMatch(matchData: Omit<Match, 'id' | 'status' | 'd
     date: Date.now()
   });
 
+  const numMatchId = matchId as number;
+
   // Add players
   const matchPlayers = [
-    ...teamAPlayers.map(player_id => ({ match_id: matchId, player_id, team: 'team_a' as const })),
-    ...teamBPlayers.map(player_id => ({ match_id: matchId, player_id, team: 'team_b' as const }))
+    ...teamAPlayers.map(player_id => ({ match_id: numMatchId, player_id, team: 'team_a' as const })),
+    ...teamBPlayers.map(player_id => ({ match_id: numMatchId, player_id, team: 'team_b' as const }))
   ];
   await db.match_players.bulkAdd(matchPlayers);
 
@@ -22,7 +24,7 @@ export async function createNewMatch(matchData: Omit<Match, 'id' | 'status' | 'd
 
   // Create first innings
   await db.innings.add({
-    match_id: matchId,
+    match_id: numMatchId,
     batting_team: battingTeam,
     bowling_team: bowlingTeam,
     total_runs: 0,
