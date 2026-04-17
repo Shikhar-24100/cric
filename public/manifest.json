@@ -1,0 +1,17 @@
+{
+  "name": "CricTrack",
+  "short_name": "CricTrack",
+  "description": "Personal Cricket Scoring & Career App",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F5F5",
+  "theme_color": "#2E7D32",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
