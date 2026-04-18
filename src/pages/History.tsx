@@ -1,6 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { useNavigate } from 'react-router-dom';
+import { Trash2 } from 'lucide-react';
+import { deleteMatchCascade } from '../db/matchQueries';
 
 const P = { bg: '#f2f0eb', card: '#ffffff', primary: '#1a3a2a', accent: '#6ee09e', border: '#e0ddd4', label: '#8a8278', muted: '#b0aba2' };
 
@@ -53,6 +55,17 @@ export default function History() {
                   <span className="px-2 py-0.5 rounded-full" style={{ fontSize: 9, fontWeight: 600, color: P.label, background: P.bg, border: `1px solid ${P.border}` }}>
                     {match.overs}ov
                   </span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm('Delete this match and all its data? This cannot be undone.')) {
+                        deleteMatchCascade(match.id!);
+                      }
+                    }}
+                    className="p-1 rounded bg-red-50 text-red-500 hover:bg-red-100 transition-colors ml-1"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               </div>
 

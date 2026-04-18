@@ -38,3 +38,21 @@ export async function createNewMatch(matchData: Omit<Match, 'id' | 'status' | 'd
 
   return matchId;
 }
+
+export async function deleteMatchCascade(matchId: number) {
+  await db.transaction('rw', [db.matches, db.match_players, db.innings, db.batting_performances, db.bowling_performances, db.balls], async () => {
+    await db.matches.delete(matchId);
+    await db.match_players.where({ match_id: matchId }).delete();
+
+    const inningsList = await db.innings.where({ match_id: matchId }).toArray();
+    const inningsIds = inningsList.map(i => i.id).filter((id): id is number => id !== undefined);
+
+    for (const inningsId of inningsIds) {
+      await db.batting_performances.where({ innings_id: inningsId }).delete();
+      await db.bowling_performances.where({ innings_id: inningsId }).delete();
+      await db.balls.where({ innings_id: inningsId }).delete();
+    }
+
+    await db.innings.where({ match_id: matchId }).delete();
+  });
+}
