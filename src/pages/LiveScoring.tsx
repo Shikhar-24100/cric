@@ -767,52 +767,47 @@ export default function LiveScoring() {
       {/* ── Add Late Players modal ──────────────────────────────────────── */}
       {showAddPlayers && (
         <div className="absolute inset-0 bg-black/60 z-50 flex items-end justify-center">
-          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[85vh] flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+            <div className="flex items-center justify-between px-4 py-4" style={{ borderBottom: '1px solid #e0ddd4' }}>
               <div>
-                <h2 className="text-base font-bold">Add Late Arrivals</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Adds to BOTH teams — one player each</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#1a3a2a' }}>Manage Squads</p>
+                <p style={{ fontSize: 9, color: '#8a8278', marginTop: 2 }}>Add new arrivals or remove unused players</p>
               </div>
-              <button onClick={() => setShowAddPlayers(false)} className="text-gray-400 text-2xl leading-none">×</button>
+              <button onClick={() => setShowAddPlayers(false)} style={{ fontSize: 24, padding: '0 8px', color: '#b0aba2', background: 'transparent', border: 'none', cursor: 'pointer' }}>&times;</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-              {/* Add to batting team */}
+            
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4" style={{ background: '#f2f0eb' }}>
               {[
                 { teamKey: currentInnings.batting_team, label: `${battingTeamName} (Batting)` },
                 { teamKey: currentInnings.bowling_team, label: `${currentInnings.bowling_team === 'team_a' ? match.team_a_name : match.team_b_name} (Bowling)` },
               ].map(({ teamKey, label }) => {
-                const existing = matchPlayers?.filter(mp => mp.team === teamKey).map(mp => allPlayers.find(p => p.id === mp.player_id)).filter(Boolean) ?? [];
+                const existing = matchPlayers?.filter(mp => mp.team === teamKey).map(mp => {
+                  const p = allPlayers.find(pl => pl.id === mp.player_id);
+                  return { mpId: mp.id, p };
+                }).filter(x => x.p) ?? [];
+                
+                const available = allPlayers?.filter(p => !matchPlayers?.some(mp => mp.player_id === p.id && mp.team === teamKey)) ?? [];
+
                 return (
-                  <div key={teamKey} className="border border-gray-200 rounded-xl overflow-hidden">
-                    <div className="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 border-b border-gray-200">{label}</div>
-                    <div className="px-3 py-2">
-                      <div className="text-xs text-gray-400 mb-2">Current: {existing.map(p => p!.name).join(', ')}</div>
-                      {/* Existing players not yet in this team */}
-                      <div className="max-h-32 overflow-y-auto mb-2">
-                        {allPlayers
-                          ?.filter(p => !matchPlayers?.some(mp => mp.player_id === p.id && mp.team === teamKey))
-                          .map(p => (
-                            <button key={p.id}
-                              onClick={async () => {
-                                await db.match_players.add({ match_id: mId, player_id: p.id!, team: teamKey as 'team_a' | 'team_b' });
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm border-b border-gray-100 hover:bg-green-50 text-gray-700 active:bg-green-100">
-                              + {p.name}
-                            </button>
-                          ))}
-                      </div>
-                      {/* Create brand new player */}
-                      <div className="flex gap-2 mt-1">
+                  <div key={teamKey} className="ct-card">
+                    <div className="ct-card-header" style={{ fontSize: 10, fontWeight: 600, color: '#1a3a2a', borderBottom: '1px solid #e0ddd4' }}>
+                      {label}
+                    </div>
+                    
+                    <div className="p-3 flex flex-col gap-3">
+                      {/* 1. Add new player inline (at top so keyboard doesn't hide) */}
+                      <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="New player name…"
-                          className="flex-1 min-w-0 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-cricket-green"
+                          placeholder="Type to create new..."
+                          className="flex-1 min-w-0"
+                          style={{ fontSize: 11, background: '#f2f0eb', border: '1px solid #e0ddd4', borderRadius: 8, padding: '8px 10px', color: '#1a3a2a', outline: 'none' }}
                           value={addMidNewName}
                           onChange={e => setAddMidNewName(e.target.value)}
                           onKeyDown={async e => {
                             if (e.key === 'Enter' && addMidNewName.trim()) {
-                              const id = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
-                              await db.match_players.add({ match_id: mId, player_id: id, team: teamKey as 'team_a' | 'team_b' });
+                              const pId = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
+                              await db.match_players.add({ match_id: mId, player_id: pId, team: teamKey as 'team_a' | 'team_b' });
                               setAddMidNewName('');
                             }
                           }}
@@ -820,20 +815,62 @@ export default function LiveScoring() {
                         <button
                           onClick={async () => {
                             if (!addMidNewName.trim()) return;
-                            const id = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
-                            await db.match_players.add({ match_id: mId, player_id: id, team: teamKey as 'team_a' | 'team_b' });
+                            const pId = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
+                            await db.match_players.add({ match_id: mId, player_id: pId, team: teamKey as 'team_a' | 'team_b' });
                             setAddMidNewName('');
                           }}
-                          className="bg-cricket-green text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0"
+                          style={{ fontSize: 11, fontWeight: 600, background: '#1a3a2a', color: '#fff', padding: '0 12px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
                         >Add</button>
                       </div>
+
+                      {/* 2. Current Squad (can remove) */}
+                      <div>
+                        <p style={{ fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>Current Squad</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {existing.map(x => (
+                            <div key={x.p!.id} className="flex items-center gap-1 pl-2 pr-1 py-1 rounded-md" style={{ background: '#edf8f2', border: '1px solid #d4f4e2' }}>
+                              <span style={{ fontSize: 10, fontWeight: 500, color: '#1a3a2a' }}>{x.p!.name}</span>
+                              <button
+                                onClick={async () => { if (x.mpId) await db.match_players.delete(x.mpId); }}
+                                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: '50%', background: 'rgba(26,58,42,0.06)', color: '#1a3a2a', fontSize: 11, fontWeight: 500, cursor: 'pointer', border: 'none' }}
+                              >
+                                &times;
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. Add from existing pool */}
+                      {available.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>Add from pool</p>
+                          <div className="flex gap-2 overflow-x-auto pb-1 w-full" style={{ scrollbarWidth: 'none' }}>
+                            {available.map(p => (
+                              <button key={p.id}
+                                onClick={async () => {
+                                  await db.match_players.add({ match_id: mId, player_id: p.id!, team: teamKey as 'team_a' | 'team_b' });
+                                }}
+                                style={{ flexShrink: 0, fontSize: 10, fontWeight: 500, padding: '5px 10px', borderRadius: 6, background: '#ffffff', color: '#1a3a2a', border: '1px solid #e0ddd4', cursor: 'pointer' }}
+                              >
+                                + {p.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
-            <div className="p-3 border-t border-gray-100">
-              <button onClick={() => setShowAddPlayers(false)} className="w-full py-3 bg-cricket-green text-white rounded-xl font-bold">Done</button>
+            
+            {/* Action button */}
+            <div className="p-3 shrink-0 pb-safe-area" style={{ borderTop: '1px solid #e0ddd4', background: '#fff' }}>
+              <button onClick={() => setShowAddPlayers(false)}
+                style={{ width: '100%', padding: '14px 0', borderRadius: 10, fontSize: 13, fontWeight: 600, border: 'none', background: '#1a3a2a', color: '#fff', cursor: 'pointer' }}>
+                Done
+              </button>
             </div>
           </div>
         </div>
