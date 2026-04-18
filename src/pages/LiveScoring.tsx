@@ -789,12 +789,12 @@ export default function LiveScoring() {
                 const available = allPlayers?.filter(p => !matchPlayers?.some(mp => mp.player_id === p.id && mp.team === teamKey)) ?? [];
 
                 return (
-                  <div key={teamKey} className="ct-card">
+                  <div key={teamKey} className="ct-card shrink-0">
                     <div className="ct-card-header" style={{ fontSize: 10, fontWeight: 600, color: '#1a3a2a', borderBottom: '1px solid #e0ddd4' }}>
                       {label}
                     </div>
                     
-                    <div className="p-3 flex flex-col gap-3">
+                    <div className="p-3 flex flex-col gap-4">
                       {/* 1. Add new player inline (at top so keyboard doesn't hide) */}
                       <div className="flex gap-2">
                         <input
@@ -845,13 +845,13 @@ export default function LiveScoring() {
                       {available.length > 0 && (
                         <div>
                           <p style={{ fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', marginBottom: 6, letterSpacing: '0.04em' }}>Add from pool</p>
-                          <div className="flex gap-2 overflow-x-auto pb-1 w-full" style={{ scrollbarWidth: 'none' }}>
+                          <div className="flex gap-2 overflow-x-auto pb-2 w-full pt-1" style={{ scrollbarWidth: 'none' }}>
                             {available.map(p => (
                               <button key={p.id}
                                 onClick={async () => {
                                   await db.match_players.add({ match_id: mId, player_id: p.id!, team: teamKey as 'team_a' | 'team_b' });
                                 }}
-                                style={{ flexShrink: 0, fontSize: 10, fontWeight: 500, padding: '5px 10px', borderRadius: 6, background: '#ffffff', color: '#1a3a2a', border: '1px solid #e0ddd4', cursor: 'pointer' }}
+                                style={{ flexShrink: 0, fontSize: 11, fontWeight: 500, padding: '6px 12px', borderRadius: 8, background: '#ffffff', color: '#1a3a2a', border: '1px solid #e0ddd4', cursor: 'pointer' }}
                               >
                                 + {p.name}
                               </button>
