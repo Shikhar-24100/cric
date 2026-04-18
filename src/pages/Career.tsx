@@ -17,13 +17,13 @@ export default function Career() {
   const allPlayers = useLiveQuery(() => db.players.toArray());
   const allBalls   = useLiveQuery(() => db.balls.toArray());
   const [filter, setFilter]   = useState('All Time');
-  const [batSort, setBatSort] = useState<'runs' | 'sr'>('runs');
-  const [bowlSort, setBowlSort] = useState<'wickets' | 'er'>('wickets');
+  const [batSort, setBatSort] = useState<'runs' | 'avg' | 'sr'>('runs');
+  const [bowlSort, setBowlSort] = useState<'wickets' | 'bsr' | 'er'>('wickets');
 
   const stats = useMemo(() => {
     if (!allPlayers || !allBalls) return [];
     return allPlayers.map(p => {
-      const bat = { runs: 0, balls: 0, fours: 0, sixes: 0 };
+      const bat  = { runs: 0, balls: 0, fours: 0, sixes: 0, dismissals: 0 };
       const bowl = { runs: 0, wickets: 0, balls: 0 };
       allBalls.forEach(b => {
         if (b.batsman_id === p.id) {
@@ -33,6 +33,7 @@ export default function Career() {
             if (b.runs_scored === 4) bat.fours++;
             if (b.runs_scored === 6) bat.sixes++;
           }
+          if (b.is_wicket) bat.dismissals++;
         }
         if (b.bowler_id === p.id) {
           if (!b.is_wide && !b.is_no_ball) bowl.balls++;
@@ -41,14 +42,29 @@ export default function Career() {
           if (b.is_wicket && b.wicket_type !== 'Run Out') bowl.wickets++;
         }
       });
-      const sr = bat.balls > 0 ? ((bat.runs / bat.balls) * 100).toFixed(0) : '0';
+      // Batting Average = Runs ÷ Dismissals  ("—" if never dismissed)
+      const avg = bat.dismissals > 0 ? (bat.runs / bat.dismissals).toFixed(1) : bat.runs > 0 ? '∞' : '—';
+      // Batting Strike Rate = (Runs ÷ Balls) × 100
+      const sr = bat.balls > 0 ? ((bat.runs / bat.balls) * 100).toFixed(0) : '—';
+      // Economy Rate = Runs conceded per over
       const er = bowl.balls > 0 ? (bowl.runs / (bowl.balls / 6)).toFixed(1) : '—';
-      return { ...p, bat, bowl, sr, er };
+      // Bowling Strike Rate = Balls Bowled ÷ Wickets
+      const bsr = bowl.wickets > 0 ? (bowl.balls / bowl.wickets).toFixed(1) : '—';
+      return { ...p, bat, bowl, avg, sr, er, bsr };
     });
   }, [allPlayers, allBalls]);
 
-  const battingSorted  = [...stats].sort((a, b) => batSort  === 'runs'    ? b.bat.runs - a.bat.runs       : parseInt(b.sr) - parseInt(a.sr));
-  const bowlingSorted  = [...stats].sort((a, b) => bowlSort === 'wickets' ? b.bowl.wickets - a.bowl.wickets : parseFloat(a.er === '—' ? '99' : a.er) - parseFloat(b.er === '—' ? '99' : b.er));
+  const avgNum = (v: string) => v === '∞' ? 9999 : v === '—' ? -1 : parseFloat(v);
+  const battingSorted = [...stats].sort((a, b) =>
+    batSort === 'runs' ? b.bat.runs - a.bat.runs :
+    batSort === 'avg'  ? avgNum(b.avg) - avgNum(a.avg) :
+    avgNum(b.sr) - avgNum(a.sr)
+  );
+  const bowlingSorted = [...stats].sort((a, b) =>
+    bowlSort === 'wickets' ? b.bowl.wickets - a.bowl.wickets :
+    bowlSort === 'bsr'     ? (a.bsr === '—' ? 9999 : parseFloat(a.bsr)) - (b.bsr === '—' ? 9999 : parseFloat(b.bsr)) :
+    (a.er === '—' ? 9999 : parseFloat(a.er)) - (b.er === '—' ? 9999 : parseFloat(b.er))
+  );
   const topBat  = battingSorted[0];
   const topBowl = [...stats].sort((a, b) => b.bowl.wickets - a.bowl.wickets)[0];
 
@@ -100,11 +116,11 @@ export default function Career() {
         <div className="ct-card-header flex items-center justify-between">
           <span style={{ fontSize: 10, fontWeight: 600, color: P.primary }}>BATTING</span>
           <div className="flex gap-1">
-            {(['runs', 'sr'] as const).map(s => (
+            {(['runs', 'avg', 'sr'] as const).map(s => (
               <button key={s} onClick={() => setBatSort(s)}
                 className="px-2 py-0.5 rounded-full"
                 style={{ fontSize: 9, fontWeight: 600, background: batSort === s ? P.primary : P.bg, color: batSort === s ? '#fff' : P.label, border: `1px solid ${P.border}` }}>
-                {s === 'runs' ? 'Runs' : 'SR'}
+                {s === 'runs' ? 'Runs' : s === 'avg' ? 'Avg' : 'SR'}
               </button>
             ))}
           </div>
@@ -113,7 +129,7 @@ export default function Career() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: `1px solid ${P.border}` }}>
-                <Th>Player</Th><Th right>R</Th><Th right>B</Th><Th right>SR</Th><Th right>4s</Th><Th right>6s</Th>
+                <Th>Player</Th><Th right>R</Th><Th right>Avg</Th><Th right>SR</Th><Th right>B</Th><Th right>4s</Th><Th right>6s</Th>
               </tr>
             </thead>
             <tbody>
@@ -124,18 +140,19 @@ export default function Career() {
                       <div className="ct-avatar" style={{ width: 24, height: 24, fontSize: 10, borderRadius: 5 }}>
                         {s.name.charAt(0)}
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: P.primary }} className="truncate max-w-[80px]">{s.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: P.primary }} className="truncate max-w-[72px]">{s.name}</span>
                     </div>
                   </td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 700, color: P.primary }}>{s.bat.runs}</td>
-                  <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{s.bat.balls}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 600, color: '#1a5796' }}>{s.avg}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 600, color: '#1a7a4a' }}>{s.sr}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{s.bat.balls}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{s.bat.fours}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{s.bat.sixes}</td>
                 </tr>
               ))}
               {battingSorted.length === 0 && (
-                <tr><td colSpan={6} className="py-6 text-center" style={{ fontSize: 11, color: P.muted }}>No data yet</td></tr>
+                <tr><td colSpan={7} className="py-6 text-center" style={{ fontSize: 11, color: P.muted }}>No data yet</td></tr>
               )}
             </tbody>
           </table>
@@ -147,11 +164,11 @@ export default function Career() {
         <div className="ct-card-header flex items-center justify-between">
           <span style={{ fontSize: 10, fontWeight: 600, color: P.primary }}>BOWLING</span>
           <div className="flex gap-1">
-            {(['wickets', 'er'] as const).map(s => (
+            {(['wickets', 'bsr', 'er'] as const).map(s => (
               <button key={s} onClick={() => setBowlSort(s)}
                 className="px-2 py-0.5 rounded-full"
                 style={{ fontSize: 9, fontWeight: 600, background: bowlSort === s ? P.primary : P.bg, color: bowlSort === s ? '#fff' : P.label, border: `1px solid ${P.border}` }}>
-                {s === 'wickets' ? 'Wkts' : 'ER'}
+                {s === 'wickets' ? 'Wkts' : s === 'bsr' ? 'SR' : 'ER'}
               </button>
             ))}
           </div>
@@ -160,7 +177,7 @@ export default function Career() {
           <table className="w-full">
             <thead>
               <tr style={{ borderBottom: `1px solid ${P.border}` }}>
-                <Th>Player</Th><Th right>W</Th><Th right>O</Th><Th right>R</Th><Th right>ER</Th>
+                <Th>Player</Th><Th right>W</Th><Th right>SR</Th><Th right>O</Th><Th right>R</Th><Th right>ER</Th>
               </tr>
             </thead>
             <tbody>
@@ -171,17 +188,18 @@ export default function Career() {
                       <div className="ct-avatar" style={{ width: 24, height: 24, fontSize: 10, borderRadius: 5 }}>
                         {s.name.charAt(0)}
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 500, color: P.primary }} className="truncate max-w-[80px]">{s.name}</span>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: P.primary }} className="truncate max-w-[72px]">{s.name}</span>
                     </div>
                   </td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 700, color: '#1a7a4a' }}>{s.bowl.wickets}</td>
+                  <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 600, color: '#1a5796' }}>{s.bsr}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{fmtOvers(s.bowl.balls)}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, color: P.label }}>{s.bowl.runs}</td>
                   <td className="py-2.5 px-2 text-right" style={{ fontSize: 10, fontWeight: 600, color: P.primary }}>{s.er}</td>
                 </tr>
               ))}
               {bowlingSorted.length === 0 && (
-                <tr><td colSpan={5} className="py-6 text-center" style={{ fontSize: 11, color: P.muted }}>No data yet</td></tr>
+                <tr><td colSpan={6} className="py-6 text-center" style={{ fontSize: 11, color: P.muted }}>No data yet</td></tr>
               )}
             </tbody>
           </table>
