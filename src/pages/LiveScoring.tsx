@@ -341,64 +341,81 @@ export default function LiveScoring() {
 
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="flex flex-col h-screen bg-cricket-bg w-full overflow-hidden relative">
+    <div className="flex flex-col h-screen w-full overflow-hidden relative" style={{ background: '#f2f0eb' }}>
 
       {/* Header */}
-      <header className="bg-cricket-green text-white px-4 py-3 flex items-center shrink-0 shadow-md z-10">
-        <button onClick={() => navigate('/')} className="mr-3"><ArrowLeft size={22} /></button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold truncate">{match.team_a_name} vs {match.team_b_name}</h1>
-          <p className="text-xs text-green-100">{battingTeamName} • {inningsLabel}</p>
+      <header className="shrink-0 z-10" style={{ background: '#1a3a2a' }}>
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <button onClick={() => navigate('/')} style={{ color: '#6ee09e', display: 'flex' }}><ArrowLeft size={20} /></button>
+          <div className="flex-1 min-w-0 ml-1">
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#ffffff' }} className="truncate">{match.team_a_name} vs {match.team_b_name}</p>
+            <p style={{ fontSize: 9, color: '#6ee09e', marginTop: 1 }}>{battingTeamName} · {inningsLabel}</p>
+          </div>
         </div>
       </header>
 
-      {/* Scrollable board */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+      {/* Board */}
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
 
-        {/* Score card */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 text-center">
-          <div className="text-5xl font-black text-gray-800 tracking-tight">
-            {totalRuns}<span className="text-gray-400 text-3xl font-bold mx-1">-</span>{totalWickets}
-          </div>
-          <div className="text-gray-500 font-medium mt-1 text-sm bg-gray-50 rounded-full inline-block px-4 py-1">
-            Over <span className="font-bold text-gray-800">{fmtOvers(legalDeliveries)}</span>
-            <span className="mx-2">•</span>
-            CRR: <span className="font-bold text-gray-800">{crr}</span>
+        {/* Innings hero block */}
+        <div className="rounded-xl p-3" style={{ background: '#1a3a2a' }}>
+          <div className="flex items-end justify-between">
+            <div>
+              <p style={{ fontSize: 9, fontWeight: 600, color: '#6ee09e', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>{inningsLabel}</p>
+              <div className="flex items-end gap-1" style={{ lineHeight: 1 }}>
+                <span style={{ fontSize: 36, fontWeight: 700, color: '#6ee09e' }}>{totalRuns}</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>-</span>
+                <span style={{ fontSize: 20, fontWeight: 700, color: '#ffffff', marginBottom: 2 }}>{totalWickets}</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Over</p>
+              <p style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>{fmtOvers(legalDeliveries)}</p>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>CRR {crr}</p>
+            </div>
           </div>
           {isSecondInnings && target !== null && (
-            <div className="mt-2 text-sm font-medium text-cricket-dark">
-              Need <strong>{runsNeeded}</strong> off <strong>{ballsLeft}</strong> balls • RRR: <strong>{rrr}</strong>
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(110,224,158,0.2)' }}>
+              <p style={{ fontSize: 10, color: '#d4f4e2' }}>Need <strong style={{ color: '#6ee09e' }}>{runsNeeded}</strong> off <strong style={{ color: '#6ee09e' }}>{ballsLeft}</strong> balls · RRR <strong style={{ color: '#6ee09e' }}>{rrr}</strong></p>
             </div>
           )}
         </div>
 
         {/* Batsmen */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="flex text-xs font-bold text-gray-400 bg-gray-50 px-3 py-2 border-b border-gray-100">
-            <div className="flex-1">BATTER</div>
-            <div className="w-7 text-right">R</div>
-            <div className="w-7 text-right">B</div>
-            <div className="w-9 text-right">SR</div>
+        <div className="ct-card">
+          <div className="ct-card-header flex" style={{ gap: 4 }}>
+            <div style={{ flex: 1, fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', letterSpacing: '0.06em' }}>BATTER</div>
+            <div style={{ width: 28, textAlign: 'right', fontSize: 9, fontWeight: 600, color: '#8a8278' }}>R</div>
+            <div style={{ width: 28, textAlign: 'right', fontSize: 9, fontWeight: 600, color: '#8a8278' }}>B</div>
+            <div style={{ width: 32, textAlign: 'right', fontSize: 9, fontWeight: 600, color: '#8a8278' }}>SR</div>
           </div>
-          <div className="px-3 py-2 space-y-3">
+          <div style={{ padding: '4px 12px' }}>
             {[{ id: strikerId, label: 'striker' as const }, { id: nonStrikerId, label: 'nonStriker' as const }].map(({ id, label }, idx) => (
               !id ? (
                 <div key={idx} onClick={() => setSelectionModal(label)}
-                  className="flex text-sm cursor-pointer text-cricket-green font-medium">
-                  <div className="flex-1 flex justify-between items-center bg-green-50 px-3 py-2 rounded-lg">
-                    Select {idx === 0 ? 'Striker' : 'Non-Striker'} <ChevronDown size={16} />
+                  className="flex items-center gap-2 cursor-pointer py-2.5"
+                  style={{ borderBottom: idx === 0 ? '1px solid #e0ddd4' : 'none' }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 7, background: '#edf8f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ChevronDown size={14} color="#1a3a2a" />
                   </div>
+                  <span style={{ fontSize: 11, color: '#1a3a2a', fontWeight: 500 }}>Select {idx === 0 ? 'Striker' : 'Non-Striker'}</span>
                 </div>
               ) : (() => {
                 const s = getBatsmanStats(id);
                 return (
-                  <div key={id} className={`flex items-center text-sm ${id === strikerId ? 'font-bold text-cricket-green' : 'text-gray-700'}`}>
-                    <div className="flex-1 min-w-0 pr-1">
-                      <span className="block truncate">{getName(id)}{id === strikerId ? ' *' : ''}</span>
+                  <div key={id} className="flex items-center gap-2 py-2.5"
+                    style={{ borderBottom: idx === 0 ? '1px solid #e0ddd4' : 'none' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: id === strikerId ? '#1a3a2a' : '#f2f0eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: id === strikerId ? '#6ee09e' : '#8a8278', flexShrink: 0 }}>
+                      {getName(id)?.charAt(0).toUpperCase()}
                     </div>
-                    <div className="w-7 text-right font-medium shrink-0">{s.r}</div>
-                    <div className="w-7 text-right text-gray-500 font-normal shrink-0">{s.b}</div>
-                    <div className="w-9 text-right text-gray-500 font-normal shrink-0">{s.sr}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: id === strikerId ? 700 : 500, color: id === strikerId ? '#1a3a2a' : '#4a4a4a' }} className="block truncate">
+                        {getName(id)}{id === strikerId ? ' *' : ''}
+                      </span>
+                    </div>
+                    <div style={{ width: 28, textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#1a3a2a', flexShrink: 0 }}>{s.r}</div>
+                    <div style={{ width: 28, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{s.b}</div>
+                    <div style={{ width: 32, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{s.sr}</div>
                   </div>
                 );
               })()
@@ -407,33 +424,34 @@ export default function LiveScoring() {
         </div>
 
         {/* Bowler */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="flex text-xs font-bold text-gray-400 bg-gray-50 px-3 py-2 border-b border-gray-100">
-            <div className="flex-1">BOWLER</div>
-            <div className="w-8 text-right">O</div>
-            <div className="w-8 text-right">M</div>
-            <div className="w-8 text-right">R</div>
-            <div className="w-8 text-right">W</div>
-            <div className="w-10 text-right">ER</div>
+        <div className="ct-card">
+          <div className="ct-card-header flex" style={{ gap: 4 }}>
+            {['BOWLER','O','R','W','ER'].map((h, i) => (
+              <div key={h} style={{ flex: i === 0 ? 1 : undefined, width: i === 0 ? undefined : i === 4 ? 32 : 28, textAlign: i === 0 ? 'left' : 'right', fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+            ))}
           </div>
-          <div className="px-3 py-2">
+          <div style={{ padding: '6px 12px' }}>
             {!bowlerId ? (
-              <div onClick={() => setSelectionModal('bowler')}
-                className="flex text-sm py-1 cursor-pointer text-cricket-green font-medium">
-                <div className="flex-1 flex justify-between items-center bg-green-50 px-3 py-2 rounded-lg">
-                  Select Bowler <ChevronDown size={16} />
+              <div onClick={() => setSelectionModal('bowler')} className="flex items-center gap-2 cursor-pointer py-1.5">
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: '#edf8f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ChevronDown size={14} color="#1a3a2a" />
                 </div>
+                <span style={{ fontSize: 11, color: '#1a3a2a', fontWeight: 500 }}>Select Bowler</span>
               </div>
             ) : (() => {
               const st = getBowlerStats(bowlerId);
               return (
-                <div className="flex items-center text-sm py-1 font-bold text-gray-800">
-                  <div className="flex-1 truncate">{getName(bowlerId)}</div>
-                  <div className="w-8 text-right">{st.overs}</div>
-                  <div className="w-8 text-right text-gray-500 font-normal">{st.maidens}</div>
-                  <div className="w-8 text-right">{st.r}</div>
-                  <div className="w-8 text-right text-cricket-green">{st.w}</div>
-                  <div className="w-10 text-right text-gray-500 font-normal">{st.er}</div>
+                <div className="flex items-center gap-1 py-1.5">
+                  <div style={{ width: 28, height: 28, borderRadius: 7, background: '#f2f0eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#1a3a2a', flexShrink: 0 }}>
+                    {getName(bowlerId)?.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#1a3a2a' }} className="block truncate">{getName(bowlerId)}</span>
+                  </div>
+                  <div style={{ width: 28, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{st.overs}</div>
+                  <div style={{ width: 28, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{st.r}</div>
+                  <div style={{ width: 28, textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#1a7a4a', flexShrink: 0 }}>{st.w}</div>
+                  <div style={{ width: 32, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{st.er}</div>
                 </div>
               );
             })()}
@@ -441,60 +459,78 @@ export default function LiveScoring() {
         </div>
 
         {/* This Over */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-3 pt-2 pb-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-bold text-gray-400">THIS OVER ({ballsInOver}/6)</h3>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 items-center min-h-[40px]">
+        <div className="ct-card px-3 pt-2 pb-3">
+          <p style={{ fontSize: 9, fontWeight: 600, color: '#8a8278', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>THIS OVER ({ballsInOver}/6)</p>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 items-center" style={{ minHeight: 36 }}>
             {thisOverBalls.map((b, i) => (
-              <div key={i} className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs ${
-                b.is_wicket ? 'bg-red-500 text-white' :
-                b.runs_scored === 4 ? 'bg-blue-500 text-white' :
-                b.runs_scored === 6 ? 'bg-purple-500 text-white' :
-                'bg-gray-100 text-gray-700'}`}>
+              <div key={i} style={{
+                flexShrink: 0, width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+                background: b.is_wicket ? '#c53030' : b.runs_scored === 6 ? '#1a3a2a' : b.runs_scored === 4 ? '#1a2e4a' : '#f2f0eb',
+                color: b.is_wicket || b.runs_scored >= 4 ? '#ffffff' : '#1a3a2a',
+                border: '1px solid #e0ddd4'
+              }}>
                 {getBallText(b)}
               </div>
             ))}
-            {thisOverBalls.length === 0 && <span className="text-sm text-gray-400 italic">No balls yet.</span>}
+            {thisOverBalls.length === 0 && <span style={{ fontSize: 10, color: '#b0aba2', fontStyle: 'italic' }}>No balls yet</span>}
           </div>
         </div>
       </div>
 
       {/* Input Panel */}
-      <div className="bg-white border-t border-gray-200 px-3 pt-2 pb-3 shrink-0 rounded-t-2xl shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+      <div className="shrink-0" style={{ background: '#ffffff', borderTop: '1px solid #e0ddd4', padding: '10px 12px 12px' }}>
+        {/* Extras toggles */}
         <div className="grid grid-cols-5 gap-1 mb-2">
           {[
-            { label: 'Wide',     state: isWide,   set: setIsWide   },
-            { label: 'No Ball',  state: isNoBall, set: setIsNoBall },
-            { label: 'Byes',     state: isBye,    set: setIsBye    },
-            { label: 'Leg Byes', state: isLegBye, set: setIsLegBye },
-            { label: 'Wicket',   state: isWicket, set: setIsWicket },
+            { label: 'Wide',   short: 'WD', state: isWide,   set: setIsWide   },
+            { label: 'No Ball', short: 'NB', state: isNoBall, set: setIsNoBall },
+            { label: 'Byes',   short: 'B',  state: isBye,    set: setIsBye    },
+            { label: 'Lb',     short: 'LB', state: isLegBye, set: setIsLegBye },
+            { label: 'Wicket', short: 'W',  state: isWicket, set: setIsWicket },
           ].map(btn => (
             <button key={btn.label} onClick={() => btn.set(!btn.state)}
-              className={`py-2 rounded-lg text-[10px] font-bold uppercase transition-colors ${
-                btn.state
-                  ? btn.label === 'Wicket' ? 'bg-red-500 text-white' : 'bg-cricket-green text-white'
-                  : 'bg-gray-100 text-gray-600'}`}>
+              style={{
+                padding: '6px 0', borderRadius: 8, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                background: btn.state ? (btn.label === 'Wicket' ? '#c53030' : '#1a3a2a') : '#f2f0eb',
+                color: btn.state ? '#ffffff' : '#8a8278',
+                border: `1px solid ${btn.state ? 'transparent' : '#e0ddd4'}`,
+                cursor: 'pointer', transition: 'all 0.12s'
+              }}>
+              {btn.short}
+            </button>
+          ))}
+        </div>
+
+        {/* Run buttons */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {[0, 1, 2, 3, 4, 5, 6].map(runs => (
+            <button key={runs} onClick={() => handleRun(runs)}
+              style={{
+                paddingTop: 12, paddingBottom: 12, borderRadius: 10, fontSize: 18, fontWeight: 700,
+                background: isWicket ? '#fff5f5' : '#f2f0eb',
+                color: isWicket ? '#c53030' : '#1a3a2a',
+                border: `1.5px solid ${isWicket ? '#fca5a5' : '#e0ddd4'}`,
+                cursor: 'pointer', transition: 'transform 0.08s'
+              }}
+              onPointerDown={e => (e.currentTarget.style.transform = 'scale(0.93)')}
+              onPointerUp={e => (e.currentTarget.style.transform = 'scale(1)')}
+            >{runs}</button>
+          ))}
+        </div>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {[
+            { label: 'Undo',     action: () => {}, color: '#8a8278' },
+            { label: 'Swap',     action: swapBatsmen, color: '#1a3a2a' },
+            { label: '+Players', action: () => setShowAddPlayers(true), color: '#1a5796' },
+            { label: 'End Inn.', action: () => setShowEndInningsConfirm(true), color: '#c53030' },
+          ].map(btn => (
+            <button key={btn.label} onClick={btn.action}
+              style={{ padding: '7px 0', borderRadius: 8, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', background: '#f2f0eb', color: btn.color, border: '1px solid #e0ddd4', cursor: 'pointer' }}>
               {btn.label}
             </button>
           ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {[0, 1, 2, 3, 4, 5, 6].map(runs => (
-            <button key={runs} onClick={() => handleRun(runs)}
-              className={`py-3 rounded-xl font-black text-xl text-gray-800 transition-transform active:scale-95 ${
-                isWicket ? 'bg-red-50 border-2 border-red-300' : 'bg-gray-100 active:bg-gray-200'}`}>
-              {runs}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-4 gap-2 mt-2">
-          <button className="bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded-lg border border-gray-200">Undo</button>
-          <button onClick={swapBatsmen} className="bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded-lg border border-gray-200">Swap</button>
-          <button onClick={() => setShowAddPlayers(true)} className="bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded-lg border border-blue-200">+Players</button>
-          <button onClick={() => setShowEndInningsConfirm(true)} className="bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg border border-red-200">End Inn.</button>
         </div>
       </div>
 

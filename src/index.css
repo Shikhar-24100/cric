@@ -1,20 +1,106 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @theme {
-  --color-cricket-green: #2E7D32;
-  --color-cricket-light: #4CAF50;
-  --color-cricket-dark: #1B5E20;
-  --color-cricket-bg: #F5F5F5;
+  /* ── Design tokens ─────────────────────────────────────── */
+  --color-ct-primary:   #1a3a2a;   /* header, active nav, buttons           */
+  --color-ct-bg:        #f2f0eb;   /* warm off-white page background         */
+  --color-ct-card:      #ffffff;   /* card surface                           */
+  --color-ct-accent:    #6ee09e;   /* key stats, highlights                  */
+  --color-ct-navy:      #1a2e4a;   /* secondary dark (most wickets card)     */
+  --color-ct-border:    #e0ddd4;   /* card + divider borders                 */
+  --color-ct-label:     #8a8278;   /* muted label text                       */
+  --color-ct-muted:     #b0aba2;   /* secondary / placeholder text           */
+
+  /* legacy aliases kept so old classes still compile */
+  --color-cricket-green: #1a3a2a;
+  --color-cricket-light: #6ee09e;
+  --color-cricket-dark:  #1a3a2a;
+  --color-cricket-bg:    #f2f0eb;
 }
 
 @layer base {
-  body {
-    @apply bg-cricket-bg text-gray-900 m-0 p-0 font-sans antialiased selection:bg-cricket-light selection:text-white overscroll-none;
-  }
+  * { box-sizing: border-box; }
 
-  /* Prevent pull to refresh on mobile */
-  html, body {
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #f2f0eb;
+    color: #1a3a2a;
+    margin: 0; padding: 0;
+    -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Typography scale */
+  .t-app-name   { font-size: 14px; font-weight: 600; }
+  .t-screen     { font-size: 13px; font-weight: 600; }
+  .t-label      { font-size: 9px;  font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #8a8278; }
+  .t-player     { font-size: 11px; font-weight: 500; }
+  .t-stat       { font-size: 10px; font-weight: 600; }
+  .t-secondary  { font-size: 9px;  font-weight: 400; color: #b0aba2; }
+  .t-score      { font-size: 26px; font-weight: 700; line-height: 1; }
+  .t-hero       { font-size: 22px; font-weight: 700; line-height: 1; }
+
+  /* Card base */
+  .ct-card {
+    background: #ffffff;
+    border: 1px solid #e0ddd4;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* Section heading inside a card */
+  .ct-card-header {
+    padding: 8px 12px;
+    background: #faf9f7;
+    border-bottom: 1px solid #e0ddd4;
+  }
+
+  /* Avatar — rounded square with initials */
+  .ct-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px; height: 32px;
+    border-radius: 7px;
+    background: #d4f4e2;
+    color: #1a3a2a;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  /* Primary button */
+  .ct-btn-primary {
+    background: #1a3a2a;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    transition: opacity 0.15s;
+  }
+  .ct-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Outlined selector button */
+  .ct-btn-outline {
+    background: transparent;
+    border: 1.5px solid #e0ddd4;
+    color: #1a3a2a;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .ct-btn-outline.active {
+    background: #1a3a2a;
+    border-color: #1a3a2a;
+    color: #ffffff;
   }
 }
