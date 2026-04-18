@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../db/db';
 import { createNewMatch } from '../db/matchQueries';
 
+type TeamKey = 'a' | 'b';
+
 export default function NewMatch() {
   const navigate = useNavigate();
   const allPlayers = useLiveQuery(() => db.players.orderBy('name').toArray());
@@ -19,37 +21,40 @@ export default function NewMatch() {
   const [teamAPlayers, setTeamAPlayers] = useState<number[]>([]);
   const [teamBPlayers, setTeamBPlayers] = useState<number[]>([]);
 
-  // Inline add-new-player inputs, one per team column
+  // Captain / VC
+  const [teamACaptain, setTeamACaptain] = useState<number | null>(null);
+  const [teamAVC,      setTeamAVC]      = useState<number | null>(null);
+  const [teamBCaptain, setTeamBCaptain] = useState<number | null>(null);
+  const [teamBVC,      setTeamBVC]      = useState<number | null>(null);
+
+  // Inline add-new-player inputs
   const [newPlayerA, setNewPlayerA] = useState('');
   const [newPlayerB, setNewPlayerB] = useState('');
 
-  const togglePlayer = (team: 'a' | 'b', playerId: number) => {
-    if (team === 'a') {
-      setTeamAPlayers(prev =>
-        prev.includes(playerId) ? prev.filter(id => id !== playerId)
-          : prev.length < playersPerSide ? [...prev, playerId] : prev
-      );
-    } else {
-      setTeamBPlayers(prev =>
-        prev.includes(playerId) ? prev.filter(id => id !== playerId)
-          : prev.length < playersPerSide ? [...prev, playerId] : prev
-      );
+  const setPlayers   = (team: TeamKey, val: number[]) => team === 'a' ? setTeamAPlayers(val) : setTeamBPlayers(val);
+  const getPlayers   = (team: TeamKey) => team === 'a' ? teamAPlayers : teamBPlayers;
+  const getOtherIds  = (team: TeamKey) => team === 'a' ? teamBPlayers : teamAPlayers;
+
+  const togglePlayer = (team: TeamKey, pId: number) => {
+    const cur = getPlayers(team);
+    if (cur.includes(pId)) {
+      setPlayers(team, cur.filter(id => id !== pId));
+      // Clear captain/VC if deselected
+      if (team === 'a') { if (teamACaptain === pId) setTeamACaptain(null); if (teamAVC === pId) setTeamAVC(null); }
+      else               { if (teamBCaptain === pId) setTeamBCaptain(null); if (teamBVC === pId) setTeamBVC(null); }
+    } else if (cur.length < playersPerSide) {
+      setPlayers(team, [...cur, pId]);
     }
   };
 
-  // Create a brand new player and immediately add them to the requesting team
-  const addNewPlayer = async (team: 'a' | 'b') => {
+  const addNewPlayer = async (team: TeamKey) => {
     const name = (team === 'a' ? newPlayerA : newPlayerB).trim();
     if (!name) return;
     const id = await db.players.add({ name, created_at: Date.now() });
     const numId = id as number;
-    if (team === 'a') {
-      if (teamAPlayers.length < playersPerSide) setTeamAPlayers(prev => [...prev, numId]);
-      setNewPlayerA('');
-    } else {
-      if (teamBPlayers.length < playersPerSide) setTeamBPlayers(prev => [...prev, numId]);
-      setNewPlayerB('');
-    }
+    const cur = getPlayers(team);
+    if (cur.length < playersPerSide) setPlayers(team, [...cur, numId]);
+    if (team === 'a') setNewPlayerA(''); else setNewPlayerB('');
   };
 
   const canStart =
@@ -68,22 +73,28 @@ export default function NewMatch() {
       last_man_standing: lastManStanding,
       toss_winner: tossWinner,
       toss_decision: tossDecision,
+      team_a_captain_id: teamACaptain ?? undefined,
+      team_a_vc_id:      teamAVC      ?? undefined,
+      team_b_captain_id: teamBCaptain ?? undefined,
+      team_b_vc_id:      teamBVC      ?? undefined,
     }, teamAPlayers, teamBPlayers);
     navigate(`/live-scoring/${matchId}`);
   };
 
   if (!allPlayers) return <div className="p-4 text-center">Loading...</div>;
 
-  // ─── Reusable team picker column ─────────────────────────────────────────
+  const getName = (id: number | null) => id ? (allPlayers.find(p => p.id === id)?.name ?? '?') : null;
+
+  // ─── Team picker column ─────────────────────────────────────────────────
   const renderTeamPicker = (
-    team: 'a' | 'b',
-    label: string,
+    team: TeamKey, label: string,
     selectedIds: number[],
-    newName: string,
-    setNewName: (v: string) => void,
+    captainId: number | null, setCaptain: (v: number | null) => void,
+    vcId: number | null,      setVC: (v: number | null) => void,
+    newName: string,           setNewName: (v: string) => void,
   ) => {
-    const otherIds = team === 'a' ? teamBPlayers : teamAPlayers;
-    const isFull = selectedIds.length >= playersPerSide;
+    const otherIds = getOtherIds(team);
+    const isFull   = selectedIds.length >= playersPerSide;
 
     return (
       <div className="flex-1 flex flex-col min-w-0 border border-gray-200 rounded-xl overflow-hidden">
@@ -93,32 +104,55 @@ export default function NewMatch() {
         </div>
 
         {/* player list */}
-        <div className="overflow-y-auto max-h-56">
+        <div className="overflow-y-auto max-h-52">
           {allPlayers.length === 0 && (
-            <p className="text-xs text-gray-400 text-center py-4">No players yet.{'\n'}Add one below.</p>
+            <p className="text-xs text-gray-400 text-center py-4 px-2">No players yet. Add one below.</p>
           )}
           {allPlayers.map(p => {
             const isSelected  = selectedIds.includes(p.id!);
             const isOtherTeam = otherIds.includes(p.id!);
             const isDisabled  = isOtherTeam || (!isSelected && isFull);
+            const isCap       = captainId === p.id;
+            const isVCap      = vcId === p.id;
             return (
-              <button
-                key={p.id}
-                disabled={isDisabled}
-                onClick={() => togglePlayer(team, p.id!)}
-                className={`w-full px-3 py-2.5 text-sm text-left border-b border-gray-100 transition-colors flex justify-between items-center
-                  ${isSelected   ? 'bg-green-50 text-green-800 font-semibold' :
-                    isOtherTeam  ? 'text-gray-300 cursor-not-allowed' :
-                    isDisabled   ? 'text-gray-300 cursor-not-allowed' :
-                    'hover:bg-gray-50 active:bg-gray-100 text-gray-700'}`}
-              >
-                <span className="truncate">{p.name}</span>
-                {isSelected && <span className="text-green-600 ml-1 shrink-0">✓</span>}
-                {isOtherTeam && <span className="text-[10px] text-gray-300 ml-1 shrink-0">taken</span>}
-              </button>
+              <div key={p.id} className={`flex items-center border-b border-gray-100 ${isDisabled ? 'opacity-30' : ''}`}>
+                <button
+                  disabled={isDisabled}
+                  onClick={() => togglePlayer(team, p.id!)}
+                  className={`flex-1 px-2 py-2 text-sm text-left transition-colors truncate
+                    ${isSelected ? 'bg-green-50 text-green-800 font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
+                >
+                  {p.name}
+                  {isCap && <span className="ml-1 text-[10px] text-amber-600 font-bold">(C)</span>}
+                  {isVCap && <span className="ml-1 text-[10px] text-blue-600 font-bold">(VC)</span>}
+                  {isOtherTeam && <span className="ml-1 text-[10px] text-gray-400">taken</span>}
+                </button>
+                {/* Captain / VC badges — only if selected */}
+                {isSelected && (
+                  <div className="flex gap-1 pr-2 shrink-0">
+                    <button
+                      onClick={() => setCaptain(isCap ? null : p.id!)}
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isCap ? 'bg-amber-400 text-white' : 'bg-gray-100 text-gray-500'}`}
+                    >C</button>
+                    <button
+                      onClick={() => setVC(isVCap ? null : p.id!)}
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isVCap ? 'bg-blue-400 text-white' : 'bg-gray-100 text-gray-500'}`}
+                    >VC</button>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
+
+        {/* Captain / VC summary */}
+        {(captainId || vcId) && (
+          <div className="px-2 py-1 bg-amber-50 border-t border-amber-100 text-[10px] text-amber-700">
+            {captainId && <span>C: {getName(captainId)}</span>}
+            {captainId && vcId && <span> · </span>}
+            {vcId && <span>VC: {getName(vcId)}</span>}
+          </div>
+        )}
 
         {/* inline add new player */}
         <div className="border-t border-gray-200 p-2 bg-white shrink-0">
@@ -135,13 +169,9 @@ export default function NewMatch() {
               onClick={() => addNewPlayer(team)}
               disabled={!newName.trim() || isFull}
               className="bg-cricket-green text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40 shrink-0"
-            >
-              Add
-            </button>
+            >Add</button>
           </div>
-          {isFull && (
-            <p className="text-[10px] text-gray-400 mt-1 text-center">Team full</p>
-          )}
+          {isFull && <p className="text-[10px] text-gray-400 mt-1 text-center">Team full</p>}
         </div>
       </div>
     );
@@ -154,16 +184,12 @@ export default function NewMatch() {
         {/* Match Setup */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
           <h2 className="text-lg font-bold text-gray-800">Match Setup</h2>
-          <input
-            type="text" placeholder="Team A Name"
+          <input type="text" placeholder="Team A Name"
             className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-cricket-green"
-            value={teamAName} onChange={e => setTeamAName(e.target.value)}
-          />
-          <input
-            type="text" placeholder="Team B Name"
+            value={teamAName} onChange={e => setTeamAName(e.target.value)} />
+          <input type="text" placeholder="Team B Name"
             className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-cricket-green"
-            value={teamBName} onChange={e => setTeamBName(e.target.value)}
-          />
+            value={teamBName} onChange={e => setTeamBName(e.target.value)} />
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 mb-1 block">OVERS</label>
@@ -173,9 +199,9 @@ export default function NewMatch() {
             </div>
             <div className="flex-1">
               <label className="text-xs font-semibold text-gray-500 mb-1 block">PLAYERS/SIDE</label>
-              <input type="number" min="2" max="11"
+              <input type="number" min="2" max="15"
                 className="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
-                value={playersPerSide} onChange={e => setPlayersPerSide(Math.min(11, Math.max(2, parseInt(e.target.value) || 2)))} />
+                value={playersPerSide} onChange={e => setPlayersPerSide(Math.min(15, Math.max(2, parseInt(e.target.value) || 2)))} />
             </div>
           </div>
         </div>
@@ -216,15 +242,15 @@ export default function NewMatch() {
           </button>
         </div>
 
-        {/* Player Selection */}
+        {/* Player Selection with Captain/VC */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3 mb-2">
           <div>
             <h2 className="text-sm font-bold text-gray-800">Select Playing XIs</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Tap names to pick · type below to add a new player</p>
+            <p className="text-xs text-gray-500 mt-0.5">Tap to pick · tap C/VC to set role · type below to add new</p>
           </div>
           <div className="flex gap-3">
-            {renderTeamPicker('a', teamAName || 'Team A', teamAPlayers, newPlayerA, setNewPlayerA)}
-            {renderTeamPicker('b', teamBName || 'Team B', teamBPlayers, newPlayerB, setNewPlayerB)}
+            {renderTeamPicker('a', teamAName || 'Team A', teamAPlayers, teamACaptain, setTeamACaptain, teamAVC, setTeamAVC, newPlayerA, setNewPlayerA)}
+            {renderTeamPicker('b', teamBName || 'Team B', teamBPlayers, teamBCaptain, setTeamBCaptain, teamBVC, setTeamBVC, newPlayerB, setNewPlayerB)}
           </div>
         </div>
 

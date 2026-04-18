@@ -15,6 +15,10 @@ export interface Match {
   last_man_standing: boolean;
   toss_winner: 'team_a' | 'team_b';
   toss_decision: 'bat' | 'bowl';
+  team_a_captain_id?: number;
+  team_a_vc_id?: number;
+  team_b_captain_id?: number;
+  team_b_vc_id?: number;
   result_winner?: 'team_a' | 'team_b' | 'draw' | 'tie';
   result_margin_type?: 'runs' | 'wickets';
   result_margin_value?: number;
@@ -97,6 +101,17 @@ const db = new Dexie('CricTrackDB') as Dexie & {
 
 // Schema declaration
 db.version(1).stores({
+  players: '++id, name, created_at',
+  matches: '++id, status, date',
+  match_players: '++id, match_id, player_id, team',
+  innings: '++id, match_id',
+  batting_performances: '++id, innings_id, player_id',
+  bowling_performances: '++id, innings_id, player_id',
+  balls: '++id, innings_id, over_number, batsman_id, bowler_id'
+});
+
+// v2 — adds captain / vc fields to matches (existing rows get undefined, that's fine)
+db.version(2).stores({
   players: '++id, name, created_at',
   matches: '++id, status, date',
   match_players: '++id, match_id, player_id, team',

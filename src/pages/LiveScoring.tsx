@@ -56,6 +56,10 @@ export default function LiveScoring() {
   const [inningsEndModal, setInningsEndModal] = useState<{ runs: number; wickets: number; overs: string } | null>(null);
   const [matchEndModal,   setMatchEndModal]   = useState<{ winner: string; margin: string } | null>(null);
   const [endOfOverModal,  setEndOfOverModal]  = useState(false);
+  const [showAddPlayers,  setShowAddPlayers]  = useState(false);
+  const [showEndInningsConfirm, setShowEndInningsConfirm] = useState(false);
+  // Inline add-player for mid-match
+  const [addMidNewName, setAddMidNewName] = useState('');
 
   // Extras toggles
   const [isWide,   setIsWide]   = useState(false);
@@ -244,7 +248,9 @@ export default function LiveScoring() {
 
     // End of over
     if (isLegal && newLegal % 6 === 0) {
-      swapBatsmen();
+      // Cricket rule: odd runs on last ball = striker crossed already, no extra swap needed
+      // Even runs on last ball = non-striker faces next over, swap once
+      if (opts.runs % 2 === 0 && !opts.wicket) swapBatsmen();
       setBowlerId(null);
       setEndOfOverModal(true);
       resetControls();
@@ -484,10 +490,11 @@ export default function LiveScoring() {
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-2">
+        <div className="grid grid-cols-4 gap-2 mt-2">
           <button className="bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded-lg border border-gray-200">Undo</button>
           <button onClick={swapBatsmen} className="bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded-lg border border-gray-200">Swap</button>
-          <button className="bg-gray-50 text-gray-600 text-xs font-bold py-2 rounded-lg border border-gray-200">Retire</button>
+          <button onClick={() => setShowAddPlayers(true)} className="bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded-lg border border-blue-200">+Players</button>
+          <button onClick={() => setShowEndInningsConfirm(true)} className="bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg border border-red-200">End Inn.</button>
         </div>
       </div>
 
@@ -716,6 +723,123 @@ export default function LiveScoring() {
                 className="w-full py-3 bg-gray-100 rounded-xl font-bold text-gray-600">
                 Cancel Wicket
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Late Players modal ──────────────────────────────────────── */}
+      {showAddPlayers && (
+        <div className="absolute inset-0 bg-black/60 z-50 flex items-end justify-center">
+          <div className="bg-white w-full max-w-md rounded-t-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div>
+                <h2 className="text-base font-bold">Add Late Arrivals</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Adds to BOTH teams — one player each</p>
+              </div>
+              <button onClick={() => setShowAddPlayers(false)} className="text-gray-400 text-2xl leading-none">×</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+              {/* Add to batting team */}
+              {[
+                { teamKey: currentInnings.batting_team, label: `${battingTeamName} (Batting)` },
+                { teamKey: currentInnings.bowling_team, label: `${currentInnings.bowling_team === 'team_a' ? match.team_a_name : match.team_b_name} (Bowling)` },
+              ].map(({ teamKey, label }) => {
+                const existing = matchPlayers?.filter(mp => mp.team === teamKey).map(mp => allPlayers.find(p => p.id === mp.player_id)).filter(Boolean) ?? [];
+                return (
+                  <div key={teamKey} className="border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 px-3 py-2 text-xs font-bold text-gray-600 border-b border-gray-200">{label}</div>
+                    <div className="px-3 py-2">
+                      <div className="text-xs text-gray-400 mb-2">Current: {existing.map(p => p!.name).join(', ')}</div>
+                      {/* Existing players not yet in this team */}
+                      <div className="max-h-32 overflow-y-auto mb-2">
+                        {allPlayers
+                          ?.filter(p => !matchPlayers?.some(mp => mp.player_id === p.id && mp.team === teamKey))
+                          .map(p => (
+                            <button key={p.id}
+                              onClick={async () => {
+                                await db.match_players.add({ match_id: mId, player_id: p.id!, team: teamKey as 'team_a' | 'team_b' });
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm border-b border-gray-100 hover:bg-green-50 text-gray-700 active:bg-green-100">
+                              + {p.name}
+                            </button>
+                          ))}
+                      </div>
+                      {/* Create brand new player */}
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          type="text"
+                          placeholder="New player name…"
+                          className="flex-1 min-w-0 text-xs bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 focus:outline-none focus:border-cricket-green"
+                          value={addMidNewName}
+                          onChange={e => setAddMidNewName(e.target.value)}
+                          onKeyDown={async e => {
+                            if (e.key === 'Enter' && addMidNewName.trim()) {
+                              const id = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
+                              await db.match_players.add({ match_id: mId, player_id: id, team: teamKey as 'team_a' | 'team_b' });
+                              setAddMidNewName('');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!addMidNewName.trim()) return;
+                            const id = await db.players.add({ name: addMidNewName.trim(), created_at: Date.now() }) as number;
+                            await db.match_players.add({ match_id: mId, player_id: id, team: teamKey as 'team_a' | 'team_b' });
+                            setAddMidNewName('');
+                          }}
+                          className="bg-cricket-green text-white text-xs font-bold px-3 py-2 rounded-lg shrink-0"
+                        >Add</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-3 border-t border-gray-100">
+              <button onClick={() => setShowAddPlayers(false)} className="w-full py-3 bg-cricket-green text-white rounded-xl font-bold">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── End Innings Early confirmation ──────────────────────────────── */}
+      {showEndInningsConfirm && (
+        <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
+            <div className="bg-red-500 text-white px-4 py-4 text-center">
+              <p className="text-xs uppercase tracking-widest font-bold opacity-80 mb-1">⚠️ Confirm</p>
+              <p className="font-black text-xl">End Innings Early?</p>
+            </div>
+            <div className="p-5 text-center">
+              <p className="text-gray-500 text-sm mb-2">Current score:</p>
+              <p className="text-3xl font-black text-gray-800 mb-4">{totalRuns}/{totalWickets} <span className="text-gray-400 text-lg font-normal">({fmtOvers(legalDeliveries)} ov)</span></p>
+              <p className="text-xs text-gray-400 mb-5">Use this if a player is injured or unable to continue. This will close the current innings.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowEndInningsConfirm(false)}
+                  className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-600">
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowEndInningsConfirm(false);
+                    checkInningsEnd(legalDeliveries, totalWickets, totalRuns);
+                    // Force-show innings end modal even if conditions not "naturally" met
+                    if (!isSecondInnings) {
+                      setInningsEndModal({ runs: totalRuns, wickets: totalWickets, overs: fmtOvers(legalDeliveries) });
+                    } else {
+                      const runDiff = firstInningsRuns - totalRuns;
+                      setMatchEndModal({
+                        winner: currentInnings.bowling_team === 'team_a' ? match.team_a_name : match.team_b_name,
+                        margin: `${Math.max(0, runDiff)} run${runDiff !== 1 ? 's' : ''}`,
+                      });
+                    }
+                  }}
+                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold">
+                  End Innings
+                </button>
+              </div>
             </div>
           </div>
         </div>
