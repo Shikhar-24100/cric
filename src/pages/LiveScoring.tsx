@@ -48,7 +48,10 @@ export default function LiveScoring() {
   const [strikerId, setStrikerId]     = useState<number | null>(null);
   const [nonStrikerId, setNonStrikerId] = useState<number | null>(null);
   const [bowlerId, setBowlerId]       = useState<number | null>(null);
-  const [dismissedIds, setDismissedIds] = useState<number[]>([]);
+
+  const dismissedIds = useMemo(() => {
+    return (currentInningsBalls ?? []).filter(b => b.is_wicket && b.batsman_id).map(b => b.batsman_id);
+  }, [currentInningsBalls]);
 
   // Modals
   const [selectionModal, setSelectionModal] = useState<'striker' | 'nonStriker' | 'bowler' | null>(null);
@@ -58,6 +61,9 @@ export default function LiveScoring() {
   const [endOfOverModal,  setEndOfOverModal]  = useState(false);
   const [showAddPlayers,  setShowAddPlayers]  = useState(false);
   const [showEndInningsConfirm, setShowEndInningsConfirm] = useState(false);
+  const [showEditOversModal, setShowEditOversModal] = useState(false);
+  const [editOversInput, setEditOversInput] = useState('');
+  
   // Inline add-player for mid-match
   const [addMidNewName, setAddMidNewName] = useState('');
 
@@ -87,9 +93,10 @@ export default function LiveScoring() {
   // Target / RRR for 2nd innings
   const target       = isSecondInnings ? firstInningsRuns + 1 : null;
   const runsNeeded   = target ? target - totalRuns : null;
+  const runsNeededDisplay = runsNeeded !== null ? Math.max(0, runsNeeded) : null;
   const ballsLeft    = match ? match.overs * 6 - legalDeliveries : 0;
-  const rrr          = (isSecondInnings && ballsLeft > 0 && runsNeeded !== null)
-    ? (runsNeeded / (ballsLeft / 6)).toFixed(2)
+  const rrr          = (isSecondInnings && ballsLeft > 0 && runsNeededDisplay !== null)
+    ? (runsNeededDisplay / (ballsLeft / 6)).toFixed(2)
     : null;
 
   // ─── Per-player stats ─────────────────────────────────────────────────────
@@ -179,7 +186,6 @@ export default function LiveScoring() {
     setStrikerId(null);
     setNonStrikerId(null);
     setBowlerId(null);
-    setDismissedIds([]);
     resetControls();
     setInningsEndModal(null);
   };
@@ -292,7 +298,6 @@ export default function LiveScoring() {
 
     // Update crease — replace dismissed batter
     if (outBatsmanId) {
-      setDismissedIds(p => [...p, outBatsmanId]);
       if (nextBatsmanId > 0) {
         if (outBatsmanId === strikerId) setStrikerId(nextBatsmanId);
         else setNonStrikerId(nextBatsmanId);
@@ -303,6 +308,37 @@ export default function LiveScoring() {
       }
     }
     setWicketFlow(null);
+  };
+  
+  // ─── Undo last ball ─────────────────────────────────────────────────────────
+  const handleUndo = async () => {
+    if (!currentInningsBalls || currentInningsBalls.length === 0) return;
+    if (!window.confirm("Undo the last ball?")) return;
+
+    const lastBall = currentInningsBalls[currentInningsBalls.length - 1];
+    
+    // Close Modals safely
+    setMatchEndModal(null);
+    setInningsEndModal(null);
+    setEndOfOverModal(false);
+
+    // Revert crease logic (before deletion)
+    if (lastBall.is_wicket) {
+      // batsman returns to strike. Since dismissedIds will auto-revert, we just force him back.
+      setStrikerId(lastBall.batsman_id);
+    } else {
+      let swap = false;
+      if (lastBall.runs_scored % 2 !== 0) swap = !swap;
+      
+      const wasLegal = !lastBall.is_wide && !lastBall.is_no_ball;
+      const willBeLegal = legalDeliveries - (wasLegal ? 1 : 0);
+      if (wasLegal && (willBeLegal + 1) % 6 === 0) swap = !swap;
+      
+      if (swap) swapBatsmen();
+    }
+    
+    // Delete ball
+    await db.balls.delete(lastBall.id!);
   };
 
   const cancelWicketFlow = () => { setWicketFlow(null); setIsWicket(false); };
@@ -369,14 +405,20 @@ export default function LiveScoring() {
               </div>
             </div>
             <div className="text-right">
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Over</p>
-              <p style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>{fmtOvers(legalDeliveries)}</p>
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                Over 
+                <button onClick={() => { setEditOversInput(match?.overs?.toString() || ''); setShowEditOversModal(true); }} style={{ padding: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', borderRadius: 4, cursor: 'pointer', border: 'none', color: '#fff' }}>✎</button>
+              </p>
+              <p style={{ fontSize: 18, fontWeight: 700, color: '#ffffff' }}>{fmtOvers(legalDeliveries)} / {match?.overs}</p>
               <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)' }}>CRR {crr}</p>
             </div>
           </div>
           {isSecondInnings && target !== null && (
             <div className="mt-2 pt-2" style={{ borderTop: '1px solid rgba(110,224,158,0.2)' }}>
-              <p style={{ fontSize: 10, color: '#d4f4e2' }}>Need <strong style={{ color: '#6ee09e' }}>{runsNeeded}</strong> off <strong style={{ color: '#6ee09e' }}>{ballsLeft}</strong> balls · RRR <strong style={{ color: '#6ee09e' }}>{rrr}</strong></p>
+              <p style={{ fontSize: 10, color: '#d4f4e2' }}>
+                Need <strong style={{ color: '#6ee09e' }}>{runsNeededDisplay === 0 ? '0 (Target Reached!)' : runsNeededDisplay}</strong> off <strong style={{ color: '#6ee09e' }}>{ballsLeft}</strong> balls 
+                {rrr !== null && <> · RRR <strong style={{ color: '#6ee09e' }}>{rrr}</strong></>}
+              </p>
             </div>
           )}
         </div>
@@ -521,7 +563,7 @@ export default function LiveScoring() {
         {/* Action buttons */}
         <div className="grid grid-cols-4 gap-1.5">
           {[
-            { label: 'Undo',     action: () => {}, color: '#8a8278' },
+            { label: 'Undo',     action: handleUndo, color: '#8a8278' },
             { label: 'Swap',     action: swapBatsmen, color: '#1a3a2a' },
             { label: '+Players', action: () => setShowAddPlayers(true), color: '#1a5796' },
             { label: 'End Inn.', action: () => setShowEndInningsConfirm(true), color: '#c53030' },
@@ -535,6 +577,39 @@ export default function LiveScoring() {
       </div>
 
       {/* ═══════════════════ MODALS ════════════════════════════════ */}
+
+      {/* Edit Overs Modal */}
+      {showEditOversModal && (
+        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl p-5 text-center">
+            <h3 className="font-bold text-lg mb-2">Edit Total Match Overs</h3>
+            <p className="text-sm text-gray-500 mb-4">Enter the new total overs limit for both innings.</p>
+            <input 
+              type="number" 
+              value={editOversInput} 
+              onChange={e => setEditOversInput(e.target.value)} 
+              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-lg font-bold text-center mb-4 focus:outline-none focus:border-cricket-green" 
+              autoFocus
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button 
+                onClick={() => setShowEditOversModal(false)}
+                className="py-3 bg-gray-100 rounded-xl font-bold text-gray-600"
+              >Cancel</button>
+              <button 
+                onClick={async () => {
+                  const num = parseInt(editOversInput);
+                  if (!isNaN(num) && num > 0) {
+                    await db.matches.update(mId, { overs: num });
+                  }
+                  setShowEditOversModal(false);
+                }}
+                className="py-3 bg-cricket-green rounded-xl font-bold text-white"
+              >Update</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Simple selection (batsman / bowler) */}
       {selectionModal && (
