@@ -310,6 +310,16 @@ export default function LiveScoring() {
     setWicketFlow(null);
   };
   
+  const handleRetire = async (pId: number) => {
+    if (!window.confirm("Retire this batsman?")) return;
+    const mp = matchPlayers?.find(m => m.player_id === pId);
+    if (mp?.id) {
+      await db.match_players.update(mp.id, { is_retired: true });
+    }
+    if (pId === strikerId) setStrikerId(null);
+    if (pId === nonStrikerId) setNonStrikerId(null);
+  };
+  
   // ─── Undo last ball ─────────────────────────────────────────────────────────
   const handleUndo = async () => {
     if (!currentInningsBalls || currentInningsBalls.length === 0) return;
@@ -450,10 +460,15 @@ export default function LiveScoring() {
                     <div style={{ width: 28, height: 28, borderRadius: 7, background: id === strikerId ? '#1a3a2a' : '#f2f0eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: id === strikerId ? '#6ee09e' : '#8a8278', flexShrink: 0 }}>
                       {getName(id)?.charAt(0).toUpperCase()}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontSize: 11, fontWeight: id === strikerId ? 700 : 500, color: id === strikerId ? '#1a3a2a' : '#4a4a4a' }} className="block truncate">
                         {getName(id)}{id === strikerId ? ' *' : ''}
                       </span>
+                      <button 
+                        onClick={() => handleRetire(id)} 
+                        style={{ fontSize: 8, padding: '2px 6px', background: '#fff5f5', color: '#c53030', border: '1px solid #fca5a5', borderRadius: 4, fontWeight: 700, textTransform: 'uppercase' }}>
+                        Retire
+                      </button>
                     </div>
                     <div style={{ width: 28, textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#1a3a2a', flexShrink: 0 }}>{s.r}</div>
                     <div style={{ width: 28, textAlign: 'right', fontSize: 10, color: '#8a8278', flexShrink: 0 }}>{s.b}</div>
@@ -632,14 +647,20 @@ export default function LiveScoring() {
                   if (selectionModal !== 'bowler' && dismissedIds.includes(p.id!)) return null;
                   return (
                     <button key={mp.player_id}
-                      onClick={() => {
+                      onClick={async () => {
+                        if (mp.is_retired) {
+                          await db.match_players.update(mp.id!, { is_retired: false });
+                        }
                         if (selectionModal === 'striker') setStrikerId(p.id!);
                         else if (selectionModal === 'nonStriker') setNonStrikerId(p.id!);
                         else setBowlerId(p.id!);
                         setSelectionModal(null);
                       }}
-                      className="w-full text-left px-4 py-3 border-b border-gray-100 font-medium active:bg-gray-50">
-                      {p.name}
+                      className="w-full text-left px-4 py-3 border-b border-gray-100 font-medium active:bg-gray-50 flex items-center justify-between">
+                      <span>{p.name}</span>
+                      {mp.is_retired && (
+                        <span style={{ fontSize: 9, padding: '2px 4px', background: '#f2f0eb', borderRadius: 4, color: '#8a8278', fontWeight: 700 }}>RETD</span>
+                      )}
                     </button>
                   );
                 })}

@@ -66,6 +66,8 @@ export default function Scorecard() {
         else if (dismissalType === 'Run Out') dismissalText = `run out (${fielder})`;
         else if (dismissalType === 'Stumped') dismissalText = `st b ${bowler}`;
         else dismissalText = dismissalType ?? 'out';
+      } else if (mp.is_retired) {
+        dismissalText = 'retired not out';
       }
       return { name: getPlayerName(pid), r, b, fours, sixes, sr, dismissalText };
     }).filter(Boolean) as { name: string; r: number; b: number; fours: number; sixes: number; sr: string; dismissalText: string }[];

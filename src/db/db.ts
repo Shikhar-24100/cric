@@ -31,6 +31,9 @@ export interface MatchPlayer {
   match_id: number;
   player_id: number;
   team: 'team_a' | 'team_b';
+  captain?: boolean;
+  vice_captain?: boolean;
+  is_retired?: boolean;
 }
 
 export interface Innings {
